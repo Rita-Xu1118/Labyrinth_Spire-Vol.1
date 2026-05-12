@@ -19,6 +19,7 @@ private slots:
     void goMazeTower();
     void goTrain();
     void toggleBGM();
+    void goGameRules();
 
 
 
@@ -28,6 +29,7 @@ private:
     QPushButton *btn2;
     QPushButton *btn3;
     QPushButton *btnMusic;
+    QPushButton *btnRules;
     void initBackgroundMusic();
 };
 

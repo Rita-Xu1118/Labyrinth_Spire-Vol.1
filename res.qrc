@@ -1,0 +1,16 @@
+<RCC>
+    <qresource prefix="/">
+        <file>1.bmp</file>
+        <file>bgm.mp3</file>
+        <file>background.jpg</file>
+        <file>trainingbgm.mp3</file>
+        <file>mazetowerbg.jpg</file>
+        <file>character.png</file>
+        <file>level2bgm.mp3</file>
+        <file>level3bgm.mp3</file>
+        <file>level1bgm.mp3</file>
+        <file>level4bgm.mp3</file>
+        <file>trbg.jpg</file>
+        <file>rule.jpg</file>
+    </qresource>
+</RCC>

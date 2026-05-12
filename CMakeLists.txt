@@ -25,7 +25,6 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(Labyrinth_Spire
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
-        videowindow.h videowindow.cpp
         homewindow.h homewindow.cpp
         mazetower.h mazetower.cpp
         level1.h level1.cpp
@@ -35,6 +34,12 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         level4.h level4.cpp
         trainingwindow.h trainingwindow.cpp
         globaldata.h globaldata.cpp
+        res.qrc
+        audiomanager.h audiomanager.cpp
+        storywindow.h storywindow.cpp
+        gameruleswindow.h gameruleswindow.cpp
+
+
 
     )
 # Define target properties for Android with Qt 6 as:
@@ -51,6 +56,7 @@ else()
     else()
         add_executable(Labyrinth_Spire
             ${PROJECT_SOURCES}
+            main.cpp
         )
     endif()
 endif()

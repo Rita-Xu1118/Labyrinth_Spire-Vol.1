@@ -6,6 +6,7 @@
 #include "trainingwindow.h"
 #include "audiomanager.h"
 #include "storywindow.h"
+#include "gameruleswindow.h"
 
 
 //bgm
@@ -65,9 +66,12 @@ HomeWindow::HomeWindow(QWidget *parent) : QWidget(parent)
     btn3->setGeometry(600, 740, 400, 100);
     btn3->setFont(f);
 
-    // 音乐开关按钮
+
     btnMusic = new QPushButton("🔊 音乐", this);
     btnMusic->setGeometry(1350, 800, 180, 60);
+
+    btnRules = new QPushButton("📖 玩法", this);
+    btnRules->setGeometry(1380, 20, 150, 50);
 
     // 按钮样式
     QString btnStyle = R"(
@@ -87,12 +91,14 @@ HomeWindow::HomeWindow(QWidget *parent) : QWidget(parent)
     btn2->setStyleSheet(btnStyle);
     btn3->setStyleSheet(btnStyle);
     btnMusic->setStyleSheet(btnStyle);
+    btnRules->setStyleSheet(btnStyle);
 
     // 连接按钮和相应页面（函数声明）
     connect(btn1, &QPushButton::clicked, this, &HomeWindow::goStory);
     connect(btn2, &QPushButton::clicked, this, &HomeWindow::goMazeTower);
     connect(btn3, &QPushButton::clicked, this, &HomeWindow::goTrain);
     connect(btnMusic, &QPushButton::clicked, this, &HomeWindow::toggleBGM);
+    connect(btnRules, &QPushButton::clicked, this, &HomeWindow::goGameRules);
 
 }
 
@@ -130,5 +136,12 @@ void HomeWindow::goTrain(){//前往训练场
 
     TrainingWindow *tw = new TrainingWindow();
     tw->show();
+    close();
+}
+
+void HomeWindow::goGameRules()
+{
+    GameRulesWindow *rw = new GameRulesWindow();
+    rw->show();
     close();
 }
