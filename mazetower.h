@@ -13,6 +13,7 @@ class MazeTower : public QWidget
     Q_OBJECT
 public:
     explicit MazeTower(QWidget *parent = nullptr);
+    void paintEvent(QPaintEvent *event);
 
 private slots:
     void openLevel1();
@@ -25,6 +26,7 @@ private slots:
 private:
     bool canPlay();       // 判断是否有心钥
     void consumeKey();    // 消耗心钥
+    bool isEnteringLevel = false;
 
     QPushButton *level1;
     QPushButton *level2;
@@ -37,6 +39,7 @@ private:
     QLabel *hintLabel;      // 提示文字
     int keyCount;           // 心钥数量
     QTimer *hintTimer;      // 提示计时
+    QPixmap bgImage;
 };
 
 #endif // MAZETOWER_H

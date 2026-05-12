@@ -66,7 +66,8 @@ private:
     QTimer *timer;
 
     qreal playerX, playerY;
-    static constexpr qreal PLAYER_SIZE = 28;
+    static constexpr qreal PLAYER_SIZE = 25;
+    static constexpr qreal DISPLAY_SIZE = 80;
     static constexpr qreal PLAYER_SPEED = 2.4;
     int playerHp;
     bool playerAlive;

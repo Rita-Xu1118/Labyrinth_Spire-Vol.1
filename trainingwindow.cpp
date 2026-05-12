@@ -8,13 +8,14 @@
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include"globaldata.h"
+#include "audiomanager.h"
 
 TrainingWindow::TrainingWindow(QWidget *parent)
     : QWidget(parent),
     animationStep(0),
     courage(0),
     mercy(0),
-    keyCount(GlobalData::keyCount),
+
     attackCd(0)
 {
     setFixedSize(1600, 900);
@@ -22,8 +23,9 @@ TrainingWindow::TrainingWindow(QWidget *parent)
     setStyleSheet("background:black;");
     setFocusPolicy(Qt::StrongFocus);
     setFocus();
+    AudioManager::instance()->play("qrc:/trainingbgm.mp3");//bgm！
+    bgImage.load("://trbg.jpg");
 
-    bgImage.load("bg_train.png");
 
     px = width()/2 - SIZE/2;
     py = height()/2 - SIZE/2;
@@ -158,9 +160,9 @@ void TrainingWindow::tryConvertToKey()
     if (courage >= 10 && mercy >= 10) {
         courage -= 10;
         mercy -= 10;
-        keyCount += 1;
+        GlobalData::keyCount += 1;
     }
-     GlobalData::keyCount = keyCount;
+
 }
 //设计物品栏
 void TrainingWindow::drawUI(QPainter &p)
@@ -169,13 +171,15 @@ void TrainingWindow::drawUI(QPainter &p)
     p.setFont(QFont("Arial",24));
     p.drawText(30, 40, QString("勇气: %1").arg(courage));
     p.drawText(30, 80, QString("悲悯: %1").arg(mercy));
-    p.drawText(30, 120, QString("🔑心钥: %1").arg(keyCount));
+    p.drawText(30, 120, QString("🔑心钥: %1").arg(GlobalData::keyCount));  // 直接读全局
+
 }
 //ok呀把所有东西画出来
 void TrainingWindow::paintEvent(QPaintEvent *)
 {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
+
 
     if (animationStep < 4) {
         p.fillRect(rect(), Qt::black);
@@ -187,11 +191,13 @@ void TrainingWindow::paintEvent(QPaintEvent *)
             p.drawText(rect(), Qt::AlignCenter, "Go!");
         return;
     }
-
-    if (!bgImage.isNull())
+    if (!bgImage.isNull()) {
         p.drawPixmap(rect(), bgImage);
-    else
+    } else {
+        // 图片加载失败时的兜底灰色
         p.fillRect(rect(), QColor(30,30,40));
+    }
+
 
     for (auto e : enemies) e->draw(p);
 
@@ -200,14 +206,38 @@ void TrainingWindow::paintEvent(QPaintEvent *)
         p.drawEllipse(d.x, d.y, Drop::SIZE, Drop::SIZE);
     }
 
-    p.setBrush(QColor(139,90,43));
-    p.drawRoundedRect(px,py,SIZE,SIZE,4,4);
+    // 画玩家图片
+    QPixmap characterImg("://character.png");
+    if (!characterImg.isNull()) {
+        p.drawPixmap(px, py, SIZE, SIZE, characterImg);
+    } else {
+        p.setBrush(QColor(139,90,43));
+        p.drawRoundedRect(px,py,SIZE,SIZE,4,4);
+    }
 
-    qreal cx = px+SIZE/2, cy=py+SIZE/2;
-    qreal dx = qCos(aimAngle);
-    qreal dy = qSin(aimAngle);
-    p.setPen(QPen(Qt::yellow, 4));
-    p.drawLine(cx,cy,cx+dx*30,cy+dy*30);
+    // 人物中心
+
+    // 三角箭头
+    qreal cx = px + SIZE/2 + 60;
+    qreal cy = py + SIZE/2-30;
+    qreal radius = DISPLAY_SIZE/2 + 10;
+    qreal arrowLen = 25;   // 箭头长度
+    qreal arrowW = 12;     // 箭头宽度
+
+    // 尖端位置
+    qreal tipX = cx + qCos(aimAngle) * radius;
+    qreal tipY = cy + qSin(aimAngle) * radius;
+
+    QPolygonF arrow;
+    arrow << QPointF(tipX, tipY)
+          << QPointF(tipX - qCos(aimAngle + 1.0) * arrowLen,
+                     tipY - qSin(aimAngle + 1.0) * arrowLen)
+          << QPointF(tipX - qCos(aimAngle - 1.0) * arrowLen,
+                     tipY - qSin(aimAngle - 1.0) * arrowLen);
+
+    p.setBrush(QColor(173, 216, 230));
+    p.setPen(Qt::NoPen);
+    p.drawPolygon(arrow);
 
     for (auto pr : projectiles) pr->draw(p);
     drawUI(p);
@@ -236,7 +266,7 @@ void TrainingWindow::keyReleaseEvent(QKeyEvent *e)
 //鼠标操纵
 void TrainingWindow::mouseMoveEvent(QMouseEvent *e)
 {
-    qreal cx=px+SIZE/2, cy=py+SIZE/2;
+    qreal cx=px+SIZE/2+60, cy=py+SIZE/2-30;
     aimAngle = qAtan2(e->y()-cy, e->x()-cx);
 }
 
@@ -244,7 +274,7 @@ void TrainingWindow::mousePressEvent(QMouseEvent *)
 {
     if (attackCd>0) return;
     attackCd=15;
-    qreal cx=px+SIZE/2, cy=py+SIZE/2;
+    qreal cx=px+SIZE/2+60, cy=py+SIZE/2-30;
     qreal dx=qCos(aimAngle)*Projectile::SPEED;
     qreal dy=qSin(aimAngle)*Projectile::SPEED;
     projectiles.append(new Projectile(cx,cy,dx,dy));
@@ -252,8 +282,7 @@ void TrainingWindow::mousePressEvent(QMouseEvent *)
 //返回
 void TrainingWindow::backToHome()
 {
-    // 把心钥同步到全局
-    GlobalData::keyCount = keyCount;
+
 
     HomeWindow *h = new HomeWindow();
     h->show();

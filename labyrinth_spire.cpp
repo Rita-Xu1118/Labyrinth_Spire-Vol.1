@@ -12,3 +12,4 @@ Labyrinth_Spire::~Labyrinth_Spire()
 {
     delete ui;
 }
+

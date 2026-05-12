@@ -7,6 +7,7 @@
 #include <QtMath>
 #include <QTimer>       // 用于延迟返回
 #include "mazetower.h"
+#include"audiomanager.h"
 
 Level1Window::Level1Window(QWidget *parent)
     : QWidget(parent),
@@ -24,6 +25,7 @@ Level1Window::Level1Window(QWidget *parent)
     timer = new QTimer(this);
     connect(timer,&QTimer::timeout,this,&Level1Window::gameLoop);
     timer->start(16);
+    AudioManager::instance()->play("qrc:/level1bgm.mp3");
 }
 void Level1Window::initMaze() {
     // 外边框
@@ -80,7 +82,7 @@ void Level1Window::initMaze() {
     walls.append(QRectF(1200, 730, 140, 20));
     walls.append(QRectF(1340, 730,20, 70));
     exitRect = QRectF(1380, 720, 60, 60); // 右下角出口
-    playerX = 120; playerY = 120;
+    playerX = 130; playerY = 130;
 
 
 
@@ -88,15 +90,19 @@ void Level1Window::initMaze() {
 
 //判断墙体（防穿墙
 bool Level1Window::isWall(qreal x, qreal y, qreal w, qreal h) const {
-    if (x < 120 || x + w > 1480 || y < 120 || y + h > 800) return true;
-    QRectF r(x,y,w,h);
-    for (const auto& wall : walls)
-        if (r.intersects(wall)) return true;
+
+    QRectF r(x, y, w, h);
+    for (const auto& wall : walls) {
+        // 缩小墙体一点点，留出缝隙
+        QRectF shrunk=wall;
+        if (r.intersects(shrunk)) return true;
+    }
     return false;
 }
 
+
 void Level1Window::clampPlayer() {
-    qreal mi=120, ma=1480-PLAYER_SIZE;
+    qreal mi=50, ma=1480-PLAYER_SIZE;
     if (playerX < mi) playerX = mi;
     if (playerX > ma) playerX = ma;
     mi=120; ma=800-PLAYER_SIZE;
@@ -120,7 +126,8 @@ void Level1Window::trySpawnEnemy() {
             qreal dis = 150 + QRandomGenerator::global()->generateDouble() * 100;
             ex = playerX + qCos(ang)*dis;
             ey = playerY + qSin(ang)*dis;
-            if (!isWall(ex-Enemy::SIZE/2, ey-Enemy::SIZE/2, Enemy::SIZE, Enemy::SIZE)) {
+            if (ex >= 120 && ex <= 1460 && ey >= 120 && ey <= 760
+                && !isWall(ex-Enemy::SIZE/2, ey-Enemy::SIZE/2, Enemy::SIZE, Enemy::SIZE)){
                 ok = true;
                 break;
             }
@@ -128,7 +135,7 @@ void Level1Window::trySpawnEnemy() {
         if (ok) enemies.append(new Enemy(ex,ey));
     }
 
-    spawnCooldownTimer = 150 + QRandomGenerator::global()->bounded(500);
+    spawnCooldownTimer = 250 + QRandomGenerator::global()->bounded(600);
 }
 
 void Level1Window::spawnCollapseZone() {
@@ -138,24 +145,39 @@ void Level1Window::spawnCollapseZone() {
 
     qreal cx, cy;
     bool ok = false;
+
+    // 迷宫有效区域范围
+    const qreal MAZE_MIN_X = 120;
+    const qreal MAZE_MAX_X = 1460 - CollapseZone::SIZE;
+    const qreal MAZE_MIN_Y = 120;
+    const qreal MAZE_MAX_Y = 760 - CollapseZone::SIZE;
+
     for (int att=0;att<50;att++) {
         qreal ang = QRandomGenerator::global()->generateDouble()*2*M_PI;
         qreal dis = 100 + QRandomGenerator::global()->generateDouble()*150;
         cx = playerX + qCos(ang)*dis;
         cy = playerY + qSin(ang)*dis;
+
+        // 对齐到32网格
         cx = qRound(cx/32)*32;
         cy = qRound(cy/32)*32;
-        if (!isWall(cx,cy,CollapseZone::SIZE,CollapseZone::SIZE)) {
+
+
+        if (cx >= MAZE_MIN_X && cx <= MAZE_MAX_X &&
+            cy >= MAZE_MIN_Y && cy <= MAZE_MAX_Y &&
+            !isWall(cx, cy, CollapseZone::SIZE, CollapseZone::SIZE))
+        {
             ok = true;
             break;
         }
     }
     if (ok) collapseZones.append(new CollapseZone(cx,cy));
 }
-
 void Level1Window::gameLoop() {
     if (!gameRunning||!playerAlive) return;
     gameTime++;
+
+
 
     qreal nx = playerX, ny = playerY;
     if (keyW) ny -= PLAYER_SPEED;
@@ -189,59 +211,50 @@ void Level1Window::gameLoop() {
 }
 
 void Level1Window::checkCollisions() {
-    QRectF pr(playerX,playerY,PLAYER_SIZE,PLAYER_SIZE);
-    for(auto e:enemies){
-        if (e->spawning && pr.intersects(e->getRect())){
-            playerHp-=5; e->spawning=false; e->visible=true;
-        }else if (e->isFullyVisible()&&!e->isDead()&&pr.intersects(e->getRect())){
-            if (e->canAttack()){playerHp-=2;e->resetAttackCooldown();}
+    QRectF pr(playerX, playerY, PLAYER_SIZE, PLAYER_SIZE);
+    for (auto e : enemies) {
+        if (e->spawning && pr.intersects(e->getRect())) {
+            playerHp -= 5;
+            e->spawning = false;
+            e->visible = true;
+        }
+        else if (e->isFullyVisible() && !e->isDead() && pr.intersects(e->getRect())) {
+            if (e->canAttack()) {
+                playerHp -= 2;
+                e->resetAttackCooldown();
+            }
         }
     }
 
-    for(int i=projectiles.size()-1;i>=0;i--){
-        for(int j=enemies.size()-1;j>=0;j--){
-            if (enemies[j]->isFullyVisible()&&!enemies[j]->isDead()){
-                if (projectiles[i]->getRect().intersects(enemies[j]->getRect())){
+    for (int i = projectiles.size() - 1; i >= 0; i--) {
+        for (int j = enemies.size() - 1; j >= 0; j--) {
+            if (enemies[j]->isFullyVisible() && !enemies[j]->isDead()) {
+                if (projectiles[i]->getRect().intersects(enemies[j]->getRect())) {
                     enemies[j]->takeDamage(1);
-                    delete projectiles[i]; projectiles.removeAt(i); break;
+                    delete projectiles[i];
+                    projectiles.removeAt(i);
+                    break;
                 }
             }
         }
     }
 
-    for(auto z:collapseZones) {
+    for (auto z : collapseZones) {
         if (z->isCollapsed() && z->getRect().contains(pr)) {
             gameOver(false);
             return;
         }
     }
 
-
     if (pr.intersects(exitRect)) {
-        gameRunning = false;
-
-        QMessageBox::information(this,"Congratulations!","You'd passed this level！");
-
-        QTimer::singleShot(0, [=]() {
-            MazeTower *existingMazeTower = nullptr;
-            for (QWidget *w : QApplication::topLevelWidgets()) {
-                if (MazeTower *mt = qobject_cast<MazeTower*>(w)) {
-                    existingMazeTower = mt;
-                    break;
-                }
-            }
-            if (existingMazeTower) {
-                existingMazeTower->show();
-                existingMazeTower->raise();
-            } else {
-                MazeTower *mazeTower = new MazeTower();
-                mazeTower->show();
-            }
-            this->close();
-        });
+        gameOver(true);
         return;
     }
-    if (playerHp<=0) {playerHp=0;playerAlive=false;gameOver(false);}
+    if (playerHp <= 0) {
+        playerHp = 0;
+        playerAlive = false;
+        gameOver(false);
+    }
 }
 
 void Level1Window::gameOver(bool win) {
@@ -256,6 +269,8 @@ void Level1Window::gameOver(bool win) {
     // 延迟1.5秒关闭/返回
     QTimer::singleShot(1500, [=]() {
 
+        AudioManager::instance()->stop();
+        AudioManager::instance()->play("qrc:/bgm.mp3");
             // 胜利：返回mazetower
             MazeTower *existingMazeTower = nullptr;
             for (QWidget *w : QApplication::topLevelWidgets()) {
@@ -280,7 +295,7 @@ void Level1Window::gameOver(bool win) {
 void Level1Window::paintEvent(QPaintEvent *) {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
-    p.fillRect(rect(),QColor(45,40,35));
+    p.fillRect(rect(), QColor(30, 60, 120));  // 窗口背景深蓝
     drawMaze(p);
 
     p.setBrush(QColor(100,150,100));
@@ -293,20 +308,39 @@ void Level1Window::paintEvent(QPaintEvent *) {
 
     for(auto z:collapseZones) z->draw(p);
     for(auto e:enemies) e->draw(p);
-
     if (playerAlive) {
-        p.setBrush(QColor(139,90,43));
-        p.drawRoundedRect(playerX,playerY,PLAYER_SIZE,PLAYER_SIZE,4,4);
+        // 玩家图片
+        QPixmap characterImg("://character.png");
+        if (!characterImg.isNull()) {
+            qreal displayX = playerX + PLAYER_SIZE/2 - DISPLAY_SIZE/2;
+            qreal displayY = playerY + PLAYER_SIZE/2 - DISPLAY_SIZE/2;
+            p.drawPixmap(displayX, displayY, DISPLAY_SIZE, DISPLAY_SIZE, characterImg);
+        } else {
+            p.setBrush(QColor(139, 90, 43));
+            p.drawRoundedRect(playerX, playerY, PLAYER_SIZE, PLAYER_SIZE, 4, 4);
+        }
 
-        // 瞄准箭头
-        qreal cx = playerX + PLAYER_SIZE/2;
-        qreal cy = playerY + PLAYER_SIZE/2;
-        qreal dx = qCos(aimAngle);
-        qreal dy = qSin(aimAngle);
-        p.setPen(QPen(QColor(255,220,0), 5));
-        p.drawLine(cx, cy, cx + dx*30, cy + dy*30);
-        p.setBrush(QColor(255,200,0));
-        p.drawEllipse(cx + dx*30 - 4, cy + dy*30 -4, 8,8);
+        // 三角箭头（以人物法杖为轴心，指示攻击方向）
+        qreal cx = playerX + PLAYER_SIZE/2+30;
+        qreal cy = playerY + PLAYER_SIZE/2-15;
+        qreal radius = DISPLAY_SIZE/2 + 5;    // 稍微超出显示范围
+        qreal arrowLen = 20;
+        qreal arrowW = 10;
+
+        qreal tipX = cx + qCos(aimAngle) * radius;
+        qreal tipY = cy + qSin(aimAngle) * radius;
+
+        QPolygonF arrow;
+        arrow << QPointF(tipX, tipY)
+              << QPointF(tipX - qCos(aimAngle + 1.0) * arrowLen,
+                         tipY - qSin(aimAngle + 1.0) * arrowLen)
+              << QPointF(tipX - qCos(aimAngle - 1.0) * arrowLen,
+                         tipY - qSin(aimAngle - 1.0) * arrowLen);
+
+        p.setBrush(QColor(40, 40, 45));
+        p.setPen(Qt::NoPen);
+        p.drawPolygon(arrow);
+
     }
 
     for(auto pr:projectiles) pr->draw(p);
@@ -317,7 +351,6 @@ void Level1Window::paintEvent(QPaintEvent *) {
         p.setFont(QFont("Arial", 32, QFont::Bold));
         p.drawText(rect(), Qt::AlignCenter, "Congratulations！\nYou'd passed this level！");
     }
-    // 失败文字
     else if (m_isFailed) {
         p.fillRect(rect(), QColor(0, 0, 0, 180));
         p.setPen(QColor(255, 255, 255));
@@ -327,8 +360,13 @@ void Level1Window::paintEvent(QPaintEvent *) {
 }
 
 void Level1Window::drawMaze(QPainter &p) {
+    // 画路（背景填充）
+    p.setBrush(QColor(180, 210, 240));  // 浅蓝色路
+    p.drawRect(100, 100, 1400, 700);     // 整个迷宫区域
+
+    // 画墙（深蓝色）
+    p.setBrush(QColor(30, 60, 120));     // 深蓝色墙
     for(const auto& w : walls){
-        p.setBrush(QColor(100,85,70));
         p.drawRect(w);
     }
 }
@@ -352,7 +390,11 @@ void Level1Window::keyPressEvent(QKeyEvent *e) {
     case Qt::Key_S:case Qt::Key_Down: keyS=true; break;
     case Qt::Key_A:case Qt::Key_Left: keyA=true; break;
     case Qt::Key_D:case Qt::Key_Right: keyD=true; break;
-    case Qt::Key_Escape: close(); break;
+    case Qt::Key_Escape:
+        AudioManager::instance()->stop();
+        AudioManager::instance()->play("qrc:/bgm.mp3");
+        close();
+        break;
     }
 }
 
@@ -370,13 +412,14 @@ void Level1Window::mouseMoveEvent(QMouseEvent *e) {
     qreal cy = playerY + PLAYER_SIZE/2;
     aimAngle = qAtan2(e->y() - cy, e->x() - cx);
 }
-
 void Level1Window::mousePressEvent(QMouseEvent *) {
-    if (!gameRunning || attackCooldown>0) return;
-    qreal cx = playerX + PLAYER_SIZE/2;
-    qreal cy = playerY + PLAYER_SIZE/2;
+    if (!gameRunning || attackCooldown > 0) return;
+
+    qreal cx = playerX + PLAYER_SIZE/2 +30;
+    qreal cy = playerY + PLAYER_SIZE/2-15;
+
     qreal dx = qCos(aimAngle) * Projectile::SPEED;
     qreal dy = qSin(aimAngle) * Projectile::SPEED;
-    projectiles.append(new Projectile(cx,cy,dx,dy));
+    projectiles.append(new Projectile(cx, cy, dx, dy));
     attackCooldown = 15;
 }

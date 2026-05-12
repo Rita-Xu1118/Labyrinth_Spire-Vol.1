@@ -83,9 +83,9 @@ void Projectile::update() {
 }
 
 void Projectile::draw(QPainter &painter) {
-    painter.setBrush(QColor(200,150,255));
-    painter.setPen(QPen(QColor(150,100,200),1));
-    painter.drawEllipse(x-SIZE/2,y-SIZE/2,SIZE,SIZE);
+    painter.setBrush(QColor(173, 216, 230));  // 浅蓝色子弹
+    painter.setPen(QPen(QColor(100, 150, 200), 1));  // 浅蓝边框
+    painter.drawEllipse(x-SIZE/2, y-SIZE/2, SIZE, SIZE);
 }
 
 QRectF Projectile::getRect() const {

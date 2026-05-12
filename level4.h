@@ -2,71 +2,62 @@
 #define LEVEL4_H
 
 #include <QWidget>
-
-#include <QKeyEvent>
-#include <QMouseEvent>
-#include <QTimer>
 #include <QVector>
 #include <QRectF>
-#include <QPainter>
-#include<QSoundEffect>
+#include <QTimer>
+#include <QKeyEvent>
+#include <QMouseEvent>
 #include "gameentities.h"
 
-class Level4Window : public QWidget {
+enum EndingState {
+    Normal,
+    VictoryText,
+    FadeToBlack,
+    Text1_Show,
+    Text1_FadeOut,
+    Text2_Show,
+    Text2_FadeOut,
+    Text3_Show,
+    Text3_FadeOut,
+    Text4_Show,
+    Text4_FadeOut,
+    ReturnToMazeTower
+};
+
+class Level4Window : public QWidget
+{
     Q_OBJECT
 public:
     explicit Level4Window(QWidget *parent = nullptr);
-    ~Level4Window(){
-        // 清理敌人
-        for (Enemy *e : enemies) {
-            delete e;
-        }
-        enemies.clear();
-
-        // 清理子弹
-        for (Projectile *p : projectiles) {
-            delete p;
-        }
-        projectiles.clear();
-
-        // 清理坍塌区
-        for (CollapseZone *z : collapseZones) {
-            delete z;
-        }
-        collapseZones.clear();
-
-        delete timer; // 清理定时器
-    };
 
 protected:
-    void paintEvent(QPaintEvent *event) override;
-    void keyPressEvent(QKeyEvent *event) override;
-    void keyReleaseEvent(QKeyEvent *event) override;
-    void mousePressEvent(QMouseEvent *event) override;
-    void mouseMoveEvent(QMouseEvent *event) override;
+    void paintEvent(QPaintEvent *) override;
+    void keyPressEvent(QKeyEvent *e) override;
+    void keyReleaseEvent(QKeyEvent *e) override;
+    void mouseMoveEvent(QMouseEvent *e) override;
+    void mousePressEvent(QMouseEvent *) override;
 
 private slots:
     void gameLoop();
+    void checkCollisions();
+    void gameOver(bool win);
+    void nextEndingPhase();
 
 private:
     void initMaze();
+    bool isWall(qreal x, qreal y, qreal w, qreal h) const;
+    void clampPlayer();
     void trySpawnEnemy();
     void spawnCollapseZone();
-    void checkCollisions();
-    void drawHUD(QPainter &p);
     void drawMaze(QPainter &p);
-    void gameOver(bool win);
-    void clampPlayer();
-    bool isWall(qreal x, qreal y, qreal w, qreal h) const;
-    bool m_isExitReached = false;
-    bool m_isFailed = false;
-    QSoundEffect *magicAttackSound = nullptr;
+    void drawHUD(QPainter &p);
+    void drawEnding(QPainter &p);
 
-    QTimer *timer;
+    static constexpr qreal PLAYER_SIZE = 25;
+    static constexpr qreal DISPLAY_SIZE = 80;
+    static constexpr qreal PLAYER_SPEED = 2.4;
 
     qreal playerX, playerY;
-    static constexpr qreal PLAYER_SIZE = 28;
-    static constexpr qreal PLAYER_SPEED = 2.4;
     int playerHp;
     bool playerAlive;
 
@@ -77,18 +68,27 @@ private:
     QRectF exitRect;
 
     QVector<Enemy*> enemies;
-    int spawnCooldownTimer;
-
     QVector<Projectile*> projectiles;
-    int attackCooldown;
-
     QVector<CollapseZone*> collapseZones;
-    int collapseSpawnTimer;
 
+    int spawnCooldownTimer;
+    int attackCooldown;
+    int collapseSpawnTimer;
     bool gameRunning;
     int gameTime;
-    static constexpr int SPAWN_MIN = 120;
-    static constexpr int SPAWN_MAX = 240;
+
+    QTimer *timer;
+
+    bool m_isExitReached = false;
+    bool m_isFailed = false;
+
+    // 结局动画
+    EndingState endingState;
+    QTimer *endingTimer;
+    QString currentText;
+    int textAlpha;
+    int bgAlpha;
+    int phaseTimer;
 };
 
-#endif // LEVEL4_H
+#endif

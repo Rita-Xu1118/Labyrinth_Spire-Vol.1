@@ -2,12 +2,11 @@
 #define TRAININGWINDOW_H
 
 #include <QWidget>
-#include <QTimer>
-#include <QVector>
-#include <QRectF>
-#include <QPainter>
 #include <QPushButton>
-#include <QLabel>
+#include <QTimer>
+#include <QPainter>
+#include <QKeyEvent>
+#include <QMouseEvent>
 #include "gameentities.h"
 
 class TrainingWindow : public QWidget
@@ -18,61 +17,49 @@ public:
     ~TrainingWindow();
 
 protected:
-    void paintEvent(QPaintEvent *event) override;
-    void keyPressEvent(QKeyEvent *event) override;
-    void keyReleaseEvent(QKeyEvent *event) override;
-    void mouseMoveEvent(QMouseEvent *event) override;
-    void mousePressEvent(QMouseEvent *event) override;
+    void paintEvent(QPaintEvent *) override;
+    void keyPressEvent(QKeyEvent *e) override;
+    void keyReleaseEvent(QKeyEvent *e) override;
+    void mouseMoveEvent(QMouseEvent *e) override;
+    void mousePressEvent(QMouseEvent *) override;
 
 private slots:
+    void startAnimation();
     void gameLoop();
-    void startAnimation();  // 开场动画
-    void spawnEnemy();      // 刷怪
+    void spawnEnemy();
     void checkCollisions();
-    void backToHome();      // 返回主页
+    void tryConvertToKey();
+    void backToHome();
 
 private:
     void drawUI(QPainter &p);
-    void tryConvertToKey(); // 10勇气+10悲悯 = 1心钥
 
-    // 开场动画
-    int animationStep;
+    QPixmap bgImage;
+    QPushButton *backBtn;
     QTimer *animTimer;
-
-    // 游戏
     QTimer *timer;
     QTimer *spawnTimer;
 
-    // 玩家
+    int animationStep;
     qreal px, py;
     qreal aimAngle;
-    bool w,a,s,d;
-    static constexpr qreal SPEED = 2.5;
-    static constexpr qreal SIZE = 28;
+    bool w, a, s, d;
+    int attackCd;
+    int courage, mercy;
 
-    // 怪物 & 子弹
     QVector<Enemy*> enemies;
     QVector<Projectile*> projectiles;
 
-    // 掉落物
     struct Drop {
-        enum Type { Courage, Mercy } type;
         qreal x, y;
+        enum Type { Courage, Mercy } type;
         static constexpr qreal SIZE = 16;
     };
     QVector<Drop> drops;
 
-    // 数值
-    int courage;   // 勇气
-    int mercy;     // 悲悯
-    int keyCount;   // 心钥（同步给MazeTower）
-
-    // UI
-    QPushButton *backBtn;
-    QPixmap bgImage;
-
-    // 冷却
-    int attackCd;
+    static constexpr qreal SIZE = 140;           // 碰撞框
+    static constexpr qreal DISPLAY_SIZE = 160;  // 显示大小
+    static constexpr qreal SPEED = 4;
 };
 
-#endif // TRAININGWINDOW_H
+#endif

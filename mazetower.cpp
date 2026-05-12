@@ -7,6 +7,8 @@
 #include <QFont>
 #include <QTimer>
 #include"globaldata.h"
+#include <QPainter>
+#include"audiomanager.h"
 
 MazeTower::MazeTower(QWidget *parent) : QWidget(parent)
 {
@@ -14,12 +16,11 @@ MazeTower::MazeTower(QWidget *parent) : QWidget(parent)
 
     keyCount = GlobalData::keyCount;
 
-    setStyleSheet(R"(
-        QWidget {
-            background-color: #2B2B2B;
-            background-repeat: repeat;
-        }
-    )");
+    isEnteringLevel = false;
+
+    bgImage.load("://mazetowerbg.jpg");
+
+
 
     // 左上角心钥 灰白色框
     keyLabel = new QLabel(this);
@@ -77,10 +78,10 @@ MazeTower::MazeTower(QWidget *parent) : QWidget(parent)
     connect(returnBtn, &QPushButton::clicked, this, &MazeTower::backToHome);
 
     // 关卡按钮
-    level1 = new QPushButton("1", this);
-    level2 = new QPushButton("2", this);
-    level3 = new QPushButton("3", this);
-    level4 = new QPushButton("4", this);
+    level1 = new QPushButton("寂寞", this);
+    level2 = new QPushButton("嗔怨", this);
+    level3 = new QPushButton("贪妄", this);
+    level4 = new QPushButton("愚执", this);
 
     QString btnStyle = R"(
         QPushButton {
@@ -127,6 +128,27 @@ MazeTower::MazeTower(QWidget *parent) : QWidget(parent)
     connect(level3, &QPushButton::clicked, this, &MazeTower::openLevel3);
     connect(level4, &QPushButton::clicked, this, &MazeTower::openLevel4);
 }
+//背景图
+void MazeTower::paintEvent(QPaintEvent *event)
+{
+    Q_UNUSED(event);
+
+    QPainter painter(this);
+
+    // 绘制背景图，自适应窗口
+    if (!bgImage.isNull()) {
+        QPixmap scalePix = bgImage.scaled(
+            this->size(),
+            Qt::IgnoreAspectRatio,
+            Qt::SmoothTransformation
+            );
+        painter.drawPixmap(0, 0, scalePix);
+    } else {
+        // 如果图片加载失败，用原来的灰色背景
+        painter.fillRect(rect(), QColor("#2B2B2B"));
+    }
+}
+
 //根据心钥数量判断是否可以游戏
 bool MazeTower::canPlay() {
     return keyCount > 0;
@@ -156,32 +178,48 @@ void MazeTower::backToHome()
 }
 
 void MazeTower::openLevel1() {
+    if (isEnteringLevel) return;  // ← 防止重复
     if (!canPlay()) { showHint(); return; }
+
+    isEnteringLevel = true;  // ← 锁定
     consumeKey();
+    AudioManager::instance()->stop();
     Level1Window *w = new Level1Window();
     w->show();
     this->close();
 }
 
 void MazeTower::openLevel2() {
+    if (isEnteringLevel) return;
     if (!canPlay()) { showHint(); return; }
+
+    isEnteringLevel = true;
     consumeKey();
+    AudioManager::instance()->stop();
     Level2Window *w = new Level2Window();
     w->show();
     this->close();
 }
 
+
 void MazeTower::openLevel3() {
+    if(isEnteringLevel)return;
     if (!canPlay()) { showHint(); return; }
+    isEnteringLevel=true;
     consumeKey();
+    AudioManager::instance()->stop();
     Level3Window *w = new Level3Window();
     w->show();
     this->close();
 }
 
 void MazeTower::openLevel4() {
+
+    if(isEnteringLevel)return;
     if (!canPlay()) { showHint(); return; }
+    isEnteringLevel=true;
     consumeKey();
+    AudioManager::instance()->stop();
     Level4Window *w = new Level4Window();
     w->show();
     this->close();

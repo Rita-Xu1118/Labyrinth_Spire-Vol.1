@@ -7,6 +7,7 @@
 #include <QRandomGenerator>
 #include <QtMath>
 #include <QTimer>
+#include"audiomanager.h"
 
 Level2Window::Level2Window(QWidget *parent)
     : QWidget(parent),
@@ -24,6 +25,7 @@ Level2Window::Level2Window(QWidget *parent)
     timer = new QTimer(this);
     connect(timer, &QTimer::timeout, this, &Level2Window::gameLoop);
     timer->start(16);
+    AudioManager::instance()->play("qrc:/level2bgm.mp3");
 }
 
 void Level2Window::initMaze(){
@@ -86,7 +88,7 @@ void Level2Window::initMaze(){
 
 
         exitRect = QRectF(1380, 720, 60, 60); // 右下角出口
-        playerX = 120; playerY = 120;
+        playerX = 130; playerY = 130;
 
 
 
@@ -94,15 +96,17 @@ void Level2Window::initMaze(){
 }
 
 bool Level2Window::isWall(qreal x, qreal y, qreal w, qreal h) const {
-    if (x < 120 || x + w > 1480 || y < 120 || y + h > 800) return true;
     QRectF r(x, y, w, h);
-    for (const auto& wall : walls)
-        if (r.intersects(wall)) return true;
+    for (const auto& wall : walls) {
+        // 缩小墙体一点点，留出缝隙
+        QRectF shrunk=wall;
+        if (r.intersects(shrunk)) return true;
+    }
     return false;
 }
 
 void Level2Window::clampPlayer() {
-    qreal mi = 120, ma = 1480 - PLAYER_SIZE;
+    qreal mi = 50, ma = 1480 - PLAYER_SIZE;
     if (playerX < mi) playerX = mi;
     if (playerX > ma) playerX = ma;
     mi = 120; ma = 800 - PLAYER_SIZE;
@@ -126,7 +130,8 @@ void Level2Window::trySpawnEnemy() {
             qreal dis = 150 + QRandomGenerator::global()->generateDouble() * 100;
             ex = playerX + qCos(ang) * dis;
             ey = playerY + qSin(ang) * dis;
-            if (!isWall(ex - Enemy::SIZE / 2, ey - Enemy::SIZE / 2, Enemy::SIZE, Enemy::SIZE)) {
+            if (ex >= 120 && ex <= 1460 && ey >= 120 && ey <= 760
+                    && !isWall(ex-Enemy::SIZE/2, ey-Enemy::SIZE/2, Enemy::SIZE, Enemy::SIZE)) {
                 ok = true;
                 break;
             }
@@ -134,7 +139,7 @@ void Level2Window::trySpawnEnemy() {
         if (ok) enemies.append(new Enemy(ex, ey));
     }
 
-    spawnCooldownTimer = 150 + QRandomGenerator::global()->bounded(500);
+    spawnCooldownTimer = 250 + QRandomGenerator::global()->bounded(500);
 }
 
 void Level2Window::spawnCollapseZone() {
@@ -144,19 +149,33 @@ void Level2Window::spawnCollapseZone() {
 
     qreal cx, cy;
     bool ok = false;
-    for (int att = 0; att < 50; att++) {
-        qreal ang = QRandomGenerator::global()->generateDouble() * 2 * M_PI;
-        qreal dis = 100 + QRandomGenerator::global()->generateDouble() * 150;
-        cx = playerX + qCos(ang) * dis;
-        cy = playerY + qSin(ang) * dis;
-        cx = qRound(cx / 32) * 32;
-        cy = qRound(cy / 32) * 32;
-        if (!isWall(cx, cy, CollapseZone::SIZE, CollapseZone::SIZE)) {
+
+    // 迷宫有效区域范围
+    const qreal MAZE_MIN_X = 120;
+    const qreal MAZE_MAX_X = 1460 - CollapseZone::SIZE;
+    const qreal MAZE_MIN_Y = 120;
+    const qreal MAZE_MAX_Y = 760 - CollapseZone::SIZE;
+
+    for (int att=0;att<50;att++) {
+        qreal ang = QRandomGenerator::global()->generateDouble()*2*M_PI;
+        qreal dis = 100 + QRandomGenerator::global()->generateDouble()*150;
+        cx = playerX + qCos(ang)*dis;
+        cy = playerY + qSin(ang)*dis;
+
+        // 对齐到32网格
+        cx = qRound(cx/32)*32;
+        cy = qRound(cy/32)*32;
+
+
+        if (cx >= MAZE_MIN_X && cx <= MAZE_MAX_X &&
+            cy >= MAZE_MIN_Y && cy <= MAZE_MAX_Y &&
+            !isWall(cx, cy, CollapseZone::SIZE, CollapseZone::SIZE))
+        {
             ok = true;
             break;
         }
     }
-    if (ok) collapseZones.append(new CollapseZone(cx, cy));
+    if (ok) collapseZones.append(new CollapseZone(cx,cy));
 }
 
 void Level2Window::gameLoop() {
@@ -260,6 +279,8 @@ void Level2Window::gameOver(bool win) {
     update();
 
     QTimer::singleShot(1500, [=]() {
+        AudioManager::instance()->stop();
+        AudioManager::instance()->play("qrc:/bgm.mp3");
         MazeTower *existingMazeTower = nullptr;
         for (QWidget *w : QApplication::topLevelWidgets()) {
             if (MazeTower *mt = qobject_cast<MazeTower*>(w)) {
@@ -298,17 +319,37 @@ void Level2Window::paintEvent(QPaintEvent *) {
     for (auto e : enemies) e->draw(p);
 
     if (playerAlive) {
-        p.setBrush(QColor(139, 90, 43));
-        p.drawRoundedRect(playerX, playerY, PLAYER_SIZE, PLAYER_SIZE, 4, 4);
+        // 画玩家图片
+        QPixmap characterImg("://character.png");
+        if (!characterImg.isNull()) {
+            qreal displayX = playerX + PLAYER_SIZE/2 - DISPLAY_SIZE/2;
+            qreal displayY = playerY + PLAYER_SIZE/2 - DISPLAY_SIZE/2;
+            p.drawPixmap(displayX, displayY, DISPLAY_SIZE, DISPLAY_SIZE, characterImg);
+        } else {
+            p.setBrush(QColor(139, 90, 43));
+            p.drawRoundedRect(playerX, playerY, PLAYER_SIZE, PLAYER_SIZE, 4, 4);
+        }
 
-        qreal cx = playerX + PLAYER_SIZE / 2;
-        qreal cy = playerY + PLAYER_SIZE / 2;
-        qreal dx = qCos(aimAngle);
-        qreal dy = qSin(aimAngle);
-        p.setPen(QPen(QColor(255, 220, 0), 5));
-        p.drawLine(cx, cy, cx + dx * 30, cy + dy * 30);
-        p.setBrush(QColor(255, 200, 0));
-        p.drawEllipse(cx + dx * 30 - 4, cy + dy * 30 - 4, 8, 8);
+        // 三角箭头
+        qreal cx = playerX + PLAYER_SIZE/2+30;
+        qreal cy = playerY + PLAYER_SIZE/2-15;
+        qreal radius = DISPLAY_SIZE/2 + 5;
+        qreal arrowLen = 20;
+        qreal arrowW = 10;
+
+        qreal tipX = cx + qCos(aimAngle) * radius;
+        qreal tipY = cy + qSin(aimAngle) * radius;
+
+        QPolygonF arrow;
+        arrow << QPointF(tipX, tipY)
+              << QPointF(tipX - qCos(aimAngle + 1.0) * arrowLen,
+                         tipY - qSin(aimAngle + 1.0) * arrowLen)
+              << QPointF(tipX - qCos(aimAngle - 1.0) * arrowLen,
+                         tipY - qSin(aimAngle - 1.0) * arrowLen);
+
+        p.setBrush(QColor(173, 216, 230));
+        p.setPen(Qt::NoPen);
+        p.drawPolygon(arrow);
     }
 
     for (auto pr : projectiles) pr->draw(p);
@@ -354,7 +395,11 @@ void Level2Window::keyPressEvent(QKeyEvent *e) {
     case Qt::Key_S: case Qt::Key_Down: keyS = true; break;
     case Qt::Key_A: case Qt::Key_Left: keyA = true; break;
     case Qt::Key_D: case Qt::Key_Right: keyD = true; break;
-    case Qt::Key_Escape: close(); break;
+    case Qt::Key_Escape:
+        AudioManager::instance()->stop();
+        AudioManager::instance()->play("qrc:/bgm.mp3");
+        close();
+        break;
     }
 }
 
@@ -368,15 +413,16 @@ void Level2Window::keyReleaseEvent(QKeyEvent *e) {
 }
 
 void Level2Window::mouseMoveEvent(QMouseEvent *e) {
-    qreal cx = playerX + PLAYER_SIZE / 2;
-    qreal cy = playerY + PLAYER_SIZE / 2;
+    qreal cx = playerX + PLAYER_SIZE/2;
+    qreal cy = playerY + PLAYER_SIZE/2;
     aimAngle = qAtan2(e->y() - cy, e->x() - cx);
 }
-
 void Level2Window::mousePressEvent(QMouseEvent *) {
     if (!gameRunning || attackCooldown > 0) return;
-    qreal cx = playerX + PLAYER_SIZE / 2;
-    qreal cy = playerY + PLAYER_SIZE / 2;
+
+    qreal cx = playerX + PLAYER_SIZE/2 +30;
+    qreal cy = playerY + PLAYER_SIZE/2-15;
+
     qreal dx = qCos(aimAngle) * Projectile::SPEED;
     qreal dy = qSin(aimAngle) * Projectile::SPEED;
     projectiles.append(new Projectile(cx, cy, dx, dy));

@@ -3,6 +3,7 @@
 
 #include <QWidget>
 
+
 QT_BEGIN_NAMESPACE
 namespace Ui {
 class Labyrinth_Spire;
@@ -16,6 +17,7 @@ class Labyrinth_Spire : public QWidget
 public:
     explicit Labyrinth_Spire(QWidget *parent = nullptr);
     ~Labyrinth_Spire() override;
+
 
 private:
     Ui::Labyrinth_Spire *ui;

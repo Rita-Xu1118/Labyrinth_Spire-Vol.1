@@ -4,15 +4,49 @@
 #include <QFont>
 #include <QUrl>
 #include "trainingwindow.h"
+#include "audiomanager.h"
+#include "storywindow.h"
+
+
+//bgm
+void HomeWindow::initBackgroundMusic()
+{
+    AudioManager::instance()->play("qrc:/bgm.mp3");
+}
+
+
+//添加背景图片
+void HomeWindow::paintEvent(QPaintEvent *event)
+{
+    Q_UNUSED(event);
+    QWidget::paintEvent(event);
+
+    QPainter painter(this);
+    QPixmap bgPix("://1.bmp");
+
+
+    // 自适应窗口大小
+    QPixmap scalePix = bgPix.scaled(
+        this->size(),
+        Qt::IgnoreAspectRatio,
+        Qt::SmoothTransformation
+        );
+
+    painter.drawPixmap(0, 0, scalePix);
+}
+
+
 
 HomeWindow::HomeWindow(QWidget *parent) : QWidget(parent)
 {
     setFixedSize(1600, 900);
     setStyleSheet("background-color: #111111;");
 
-    //准备添加背景图片
+
 
     //准备添加背景音乐
+    initBackgroundMusic();
+
 
     // 按钮位置和字体
     QFont f;
@@ -52,21 +86,35 @@ HomeWindow::HomeWindow(QWidget *parent) : QWidget(parent)
     btn1->setStyleSheet(btnStyle);
     btn2->setStyleSheet(btnStyle);
     btn3->setStyleSheet(btnStyle);
-    btnMusic->setStyleSheet(btnStyle);//想实现音乐开关按钮但是音乐未实现
+    btnMusic->setStyleSheet(btnStyle);
 
     // 连接按钮和相应页面（函数声明）
     connect(btn1, &QPushButton::clicked, this, &HomeWindow::goStory);
     connect(btn2, &QPushButton::clicked, this, &HomeWindow::goMazeTower);
     connect(btn3, &QPushButton::clicked, this, &HomeWindow::goTrain);
+    connect(btnMusic, &QPushButton::clicked, this, &HomeWindow::toggleBGM);
 
 }
 
 
-// 没有实现，bgm
 
+void HomeWindow::toggleBGM()
+{
+    if (AudioManager::instance()->isPlaying()) {
+        AudioManager::instance()->pause();
+        btnMusic->setText("🔇 音乐");
+    } else {
+        AudioManager::instance()->resume();
+        btnMusic->setText("🔊 音乐");
+    }
+}
 //连接按钮和相应页面（函数定义）
-void HomeWindow::goStory(){//未编译，后期会新建文件导入图片
-    QMessageBox::information(this,"","背景故事");
+
+void HomeWindow::goStory()
+{
+    StoryWindow *sw = new StoryWindow();
+    sw->show();
+    close();
 }
 
 void HomeWindow::goMazeTower(){//前往选关页面
